@@ -14,7 +14,8 @@ app.get('/', (req, res) => {
 });
 
 app.post('/whatsapp', (req, res) => {
-  const incomingMessage = req.body.Body.trim().toLowerCase();
+  const incomingMessage = (req.body.Body || '').trim().toLowerCase();
+
   const from = req.body.From;
   
   // Log incoming message
