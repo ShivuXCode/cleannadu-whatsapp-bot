@@ -1,20 +1,28 @@
 {
   "name": "cleannadu-whatsapp-bot",
   "version": "1.0.0",
-  "description": "",
+  "description": "Twilio WhatsApp Bot backend using Node.js and Express",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "nodemon index.js"
   },
-  "keywords": [],
+  "keywords": [
+    "twilio",
+    "whatsapp",
+    "bot",
+    "express",
+    "nodejs"
+  ],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
-    "axios": "^1.13.2",
-    "body-parser": "^2.2.1",
-    "dotenv": "^17.2.3",
-    "express": "^5.2.1"
+    "body-parser": "^1.20.2",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "twilio": "^4.19.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
   }
 }

@@ -1,86 +1,43 @@
-require("dotenv").config();
-const express = require("express");
-const bodyParser = require("body-parser");
-const axios = require("axios");
+require('dotenv').config();
+const express = require('express');
+const bodyParser = require('body-parser');
+const twilio = require('twilio');
 
 const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-const VERIFY_TOKEN = "cleannadu_verify_token";
-const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
-const PHONE_NUMBER_ID = "913127778552733";
-
-// Health check route
-app.get("/", (req, res) => {
-    res.send("CleanNadu WhatsApp Bot is running 🚀");
+app.get('/', (req, res) => {
+  res.send('Twilio WhatsApp Bot is running');
 });
 
-// Webhook verification (GET)
-app.get("/webhook", (req, res) => {
-    try {
-        const mode = req.query["hub.mode"];
-        const token = req.query["hub.verify_token"];
-        const challenge = req.query["hub.challenge"];
+app.post('/whatsapp', (req, res) => {
+  const incomingMessage = req.body.Body.trim().toLowerCase();
+  const from = req.body.From;
+  
+  const twiml = new twilio.twiml.MessagingResponse();
+  let replyMessage = '';
 
-        if (mode === "subscribe" && token === VERIFY_TOKEN) {
-            console.log("✅ Webhook verified successfully");
-            res.status(200).send(challenge);
-        } else {
-            console.error("❌ Webhook verification failed");
-            res.sendStatus(403);
-        }
-    } catch (error) {
-        console.error("❌ Error in webhook verification:", error.message);
-        res.sendStatus(500);
-    }
+  if (incomingMessage === 'hi' || incomingMessage === 'hello') {
+    replyMessage = 'Welcome to Cleannadu WhatsApp Bot! 👋\n\nI\'m here to help you. Type "help" to see available commands.';
+  } else if (incomingMessage === 'help') {
+    replyMessage = '📋 Available Commands:\n\n' +
+                   '• hi/hello - Get a welcome message\n' +
+                   '• help - Show this help menu\n' +
+                   '• Any other message - I\'ll echo it back to you\n\n' +
+                   'Have a great day!';
+  } else {
+    replyMessage = `You said: "${req.body.Body}"`;
+  }
+
+  twiml.message(replyMessage);
+  
+  res.type('text/xml');
+  res.send(twiml.toString());
 });
 
-// Receive messages (POST)
-app.post("/webhook", async (req, res) => {
-    try {
-        console.log("📩 Webhook hit");
-        console.log("Incoming request body:");
-        console.log(JSON.stringify(req.body, null, 2));
-
-        // Safely extract the message
-        const message = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-
-        if (!message) {
-            console.log("⚠️ No message found in webhook payload");
-            return res.sendStatus(200);
-        }
-
-        const from = message.from;
-        console.log(`📱 Message from: ${from}`);
-
-        const reply = "👋 Welcome to CleanNadu!\n\n1️⃣ English\n2️⃣ தமிழ்\n3️⃣ हिंदी\n\nReply with 1, 2 or 3.";
-
-        // Send WhatsApp reply
-        await axios.post(
-            `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`,
-            {
-                messaging_product: "whatsapp",
-                to: from,
-                text: { body: reply },
-            },
-            {
-                headers: {
-                    Authorization: `Bearer ${ACCESS_TOKEN}`,
-                    "Content-Type": "application/json",
-                },
-            }
-        );
-
-        console.log(`✅ Reply sent to ${from}`);
-        res.sendStatus(200);
-    } catch (error) {
-        console.error("❌ Error processing webhook:", error.response?.data || error.message);
-        res.sendStatus(500);
-    }
-});
-
-// Start server
-const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`🚀 CleanNadu WhatsApp Bot server running on port ${PORT}`);
+  console.log(`🚀 Twilio WhatsApp Bot server is running on port ${PORT}`);
 });
