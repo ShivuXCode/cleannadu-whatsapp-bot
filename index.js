@@ -17,6 +17,9 @@ app.post('/whatsapp', (req, res) => {
   const incomingMessage = req.body.Body.trim().toLowerCase();
   const from = req.body.From;
   
+  // Log incoming message
+  console.log(`📩 Incoming message from ${from}: "${req.body.Body}"`);
+  
   const twiml = new twilio.twiml.MessagingResponse();
   let replyMessage = '';
 
@@ -33,6 +36,8 @@ app.post('/whatsapp', (req, res) => {
   }
 
   twiml.message(replyMessage);
+  
+  console.log(`📤 Sending reply: "${replyMessage}"`);
   
   res.type('text/xml');
   res.send(twiml.toString());
