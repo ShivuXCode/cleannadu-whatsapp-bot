@@ -1,6 +1,15 @@
 # Cleannadu WhatsApp Bot
 
-A production-ready Twilio WhatsApp Bot backend built with Node.js and Express.
+A state-based conversational WhatsApp bot for filing and tracking cleanliness complaints. Built with Node.js, Express, and Twilio.
+
+## Features
+
+✨ **Multi-language Support** - Tamil, English, and Hindi
+🔄 **State Management** - Conversation flow tracking per user
+📸 **Media Support** - Accept images, location, voice notes, and text
+🆔 **Complaint Tracking** - Sequential ID generation (CLN-000001)
+📊 **Status Tracking** - Track complaint status by ID
+🚀 **Production Ready** - Deployable on Render with zero code changes
 
 ## Setup
 
@@ -38,14 +47,60 @@ npm run dev
 
 ## Bot Commands
 
-- `hi` or `hello` - Receive a welcome message
-- `help` - Display available commands
-- Any other message - Bot echoes your message back
+**Language Selection:**
+- 1️⃣ Tamil (தமிழ்)
+- 2️⃣ English
+- 3️⃣ Hindi (हिंदी)
+
+**Main Menu:**
+- 1️⃣ File a complaint
+- 2️⃣ Track complaint
+
+**Filing a Complaint:**
+- Send 📸 Image of unclean location
+- Send 📍 Live location
+- Send 📝 Text address
+- Send 🎤 Voice note
+- Send 🖼️ Image with address text
+
+**Tracking:**
+- Enter complaint ID (e.g., CLN-000001)
 
 ## API Endpoints
 
 - `GET /` - Health check endpoint
 - `POST /whatsapp` - WhatsApp webhook endpoint (configured in Twilio)
+
+## Conversation Flow
+
+```
+User sends any message
+    ↓
+Language Selection (Tamil/English/Hindi)
+    ↓
+Main Menu (File Complaint / Track Complaint)
+    ↓
+┌─────────────────────┬──────────────────────┐
+│  File Complaint     │  Track Complaint     │
+│                     │                      │
+│  1. Send location   │  1. Enter ID         │
+│     (image/GPS/     │  2. View status      │
+│      text/voice)    │  3. Back to menu     │
+│  2. Get CLN-XXXXXX  │                      │
+│  3. Back to menu    │                      │
+└─────────────────────┴──────────────────────┘
+```
+
+## Data Storage
+
+Currently using **in-memory storage** for:
+- User sessions (state, language, data)
+- Complaints (ID, user, location, status, date)
+
+**For production**, extend to:
+- MongoDB for persistence
+- Redis for session management
+- AWS S3/Cloudinary for media storage
 
 ## Deploy to Render
 
