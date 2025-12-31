@@ -1,15 +1,59 @@
-# Cleannadu WhatsApp Bot
+# CleanNadu WhatsApp Bot
 
-A state-based conversational WhatsApp bot for filing and tracking cleanliness complaints. Built with Node.js, Express, and Twilio.
+An advanced state-based conversational WhatsApp bot for civic cleanliness complaint management. Built with Node.js, Express, and Twilio with intelligent intent detection and fuzzy matching.
 
 ## Features
 
-✨ **Multi-language Support** - Tamil, English, and Hindi
-🔄 **State Management** - Conversation flow tracking per user
-📸 **Media Support** - Accept images, location, voice notes, and text
-🆔 **Complaint Tracking** - Sequential ID generation (CLN-000001)
-📊 **Status Tracking** - Track complaint status by ID
-🚀 **Production Ready** - Deployable on Render with zero code changes
+🌐 **Multi-language Support** - Tamil, English, Hindi with fuzzy matching
+🤖 **Global Commands** - Work anytime, in any state (language change, file, track, exit)
+🔄 **State Management** - Robust per-user conversation tracking
+🧠 **Intent Detection** - Fuzzy matching handles typos (e.g., "englidh" → English)
+📸 **Media Support** - Images, GPS location, voice notes, text addresses
+🆔 **Sequential IDs** - Auto-generated complaint tracking (CLN-000001)
+📊 **Status Tracking** - Track complaint status by ID with validation
+🎯 **Persistent UI** - Language selector visible in every response
+🚀 **Production Ready** - Modular, extensible, deployment-ready
+
+## Global Commands (Work Anywhere)
+
+These commands work **at any time**, regardless of conversation state:
+
+### Language Change
+Type any variation (with typos):
+- `tamil`, `tamizh`, `taml`, `1`
+- `english`, `eng`, `englidh`, `2`  
+- `hindi`, `indi`, `hind`, `3`
+
+Bot will ask: *"Did you mean English? Reply YES or NO"*
+
+### Complaint Actions
+- **File**: `file`, `complaint`, `register`, `new`
+- **Track**: `track`, `status`, `check`
+- **Exit**: `exit`, `quit`, `cancel`, `stop`
+
+## Conversation Flow
+
+```
+User sends any message
+    ↓
+Language Selection (with fuzzy matching)
+    ↓
+Main Menu (always accessible)
+    ↓
+┌─────────────────────────────┬───────────────────────┐
+│  1. File Complaint          │  2. Track Complaint   │
+│                             │                       │
+│  → Send image/location/     │  → Enter CLN-XXXXXX   │
+│     text/voice              │  → Validate format    │
+│  → Get CLN-000001           │  → Show status        │
+│  → Return to menu           │  → Return to menu     │
+└─────────────────────────────┴───────────────────────┘
+                    ↓
+        3. Exit → Reset to menu
+                    ↓
+    🌐 Language: 1️⃣ Tamil | 2️⃣ English | 3️⃣ Hindi
+    (Always visible, always clickable)
+```
 
 ## Setup
 
@@ -47,49 +91,97 @@ npm run dev
 
 ## Bot Commands
 
-**Language Selection:**
-- 1️⃣ Tamil (தமிழ்)
-- 2️⃣ English
-- 3️⃣ Hindi (हिंदी)
+## Bot Interaction Examples
 
-**Main Menu:**
-- 1️⃣ File a complaint
-- 2️⃣ Track complaint
+**Example 1: Language change mid-conversation**
+```
+User: "englidh" (typo)
+Bot: "Did you mean English? Reply YES or NO"
+User: "yes"
+Bot: "✅ Language changed to English
 
-**Filing a Complaint:**
-- Send 📸 Image of unclean location
-- Send 📍 Live location
-- Send 📝 Text address
-- Send 🎤 Voice note
-- Send 🖼️ Image with address text
+📋 Please select an option:
+1️⃣ File a cleanliness complaint
+2️⃣ Track complaint status
+3️⃣ Exit
 
-**Tracking:**
-- Enter complaint ID (e.g., CLN-000001)
+🌐 Language: 1️⃣ Tamil | 2️⃣ English | 3️⃣ Hindi"
+```
+
+**Example 2: Filing complaint with GPS**
+```
+User: "1" (File complaint)
+Bot: "📸 Please send an image of the unclean location..."
+User: [Sends live location]
+Bot: "✅ Your complaint has been registered!
+🆔 Complaint ID: CLN-000001
+📊 Status: Pending
+
+📋 Please select an option:
+1️⃣ File a cleanliness complaint
+2️⃣ Track complaint status
+3️⃣ Exit
+
+🌐 Language: 1️⃣ Tamil | 2️⃣ English | 3️⃣ Hindi"
+```
+
+**Example 3: Global command**
+```
+User: "track" (while in any state)
+Bot: "🔍 Please enter your complaint ID (e.g., CLN-000001)
+
+🌐 Language: 1️⃣ Tamil | 2️⃣ English | 3️⃣ Hindi"
+```
 
 ## API Endpoints
 
 - `GET /` - Health check endpoint
 - `POST /whatsapp` - WhatsApp webhook endpoint (configured in Twilio)
 
-## Conversation Flow
+## Architecture Highlights
 
+### Intent Detection System
+- **Fuzzy Matching**: Handles typos using Levenshtein distance algorithm
+- **Pattern Recognition**: Detects language and command intent from natural language
+- **Multi-pattern Support**: Each intent has multiple keywords including regional variations
+
+### State Management
+- **Per-user Sessions**: Isolated state tracking via WhatsApp number
+- **Interrupt Handling**: Global commands don't break conversation flow
+- **State Recovery**: Can resume previous state after language confirmation
+
+### Message Structure
+```javascript
+{
+  welcome: "Greeting + Language selector",
+  menu: "Options + Language selector",
+  responses: "Content + Language selector"
+}
 ```
-User sends any message
-    ↓
-Language Selection (Tamil/English/Hindi)
-    ↓
-Main Menu (File Complaint / Track Complaint)
-    ↓
-┌─────────────────────┬──────────────────────┐
-│  File Complaint     │  Track Complaint     │
-│                     │                      │
-│  1. Send location   │  1. Enter ID         │
-│     (image/GPS/     │  2. View status      │
-│      text/voice)    │  3. Back to menu     │
-│  2. Get CLN-XXXXXX  │                      │
-│  3. Back to menu    │                      │
-└─────────────────────┴──────────────────────┘
+**Every message** ends with:
 ```
+🌐 Language: 1️⃣ Tamil | 2️⃣ English | 3️⃣ Hindi
+```
+
+### Complaint Validation
+- ID Format: `CLN-XXXXXX` (regex validated)
+- Sequential generation with zero-padding
+- Persistent storage (in-memory, extendable to DB)
+
+## Technical Specifications
+
+**Global Command Processing Order:**
+1. Exit/Cancel commands (highest priority)
+2. Language change intent
+3. File complaint intent
+4. Track complaint intent
+5. State-based flow (if no global match)
+
+**Supported Input Types:**
+- Text messages
+- Images (via Twilio MediaUrl)
+- GPS coordinates (Latitude/Longitude)
+- Voice notes (MediaUrl with audio MIME)
 
 ## Data Storage
 
