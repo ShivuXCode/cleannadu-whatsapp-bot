@@ -18,7 +18,7 @@ function getSession(userId) {
   if (!userSessions[userId]) {
     userSessions[userId] = {
       state: 'LANGUAGE_SELECTION',
-      language: null, // No language selected initially
+      language: 'en',
       complaintData: {},
       pendingLanguage: null
     };
@@ -35,41 +35,18 @@ function normalize(text = '') {
   return text.toLowerCase().trim();
 }
 
-// Language aliases for direct matching (no confirmation needed)
-const LANGUAGE_ALIASES = {
-  en: [
-    'english', 'eng', 'en', 'engl', 'englsh', 'englis', 'englidh', 
-    'inglish', 'inglesh', 'enkish', 'anglish'
-  ],
-  ta: [
-    'tamil', 'தமிழ்', 'தமிழ', 'tamizh', 'taml', 'thamil', 'tamill'
-  ],
-  hi: [
-    'hindi', 'हिंदी', 'हिन्दी', 'indi', 'hindhi', 'hind'
-  ]
-};
-
-// Detect language from text input with priority order
-function detectLanguageFromText(text) {
-  const normalized = normalize(text);
+// Enhanced fuzzy language detection with typo tolerance
+function detectLanguage(text) {
+  const t = normalize(text);
   
-  // Priority 1: Check exact/alias matches (case-insensitive, direct selection)
-  for (const [langCode, aliases] of Object.entries(LANGUAGE_ALIASES)) {
-    if (aliases.some(alias => normalized === alias || normalized.includes(alias))) {
-      return { lang: langCode, needsConfirmation: false };
-    }
-  }
+  // Tamil detection - handle common typos
+  if (/tam[il]*|தமிழ்?|tamill|thamil/.test(t)) return 'ta';
   
-  // Priority 2: Fuzzy regex matching for Tamil/Hindi only (needs confirmation)
-  // Tamil fuzzy patterns
-  if (/tam|தமி/.test(normalized)) {
-    return { lang: 'ta', needsConfirmation: true };
-  }
+  // Hindi detection - handle common typos
+  if (/hin[di]*|हिं[दी]*|hindhi|indi/.test(t)) return 'hi';
   
-  // Hindi fuzzy patterns
-  if (/hin|हिं/.test(normalized)) {
-    return { lang: 'hi', needsConfirmation: true };
-  }
+  // English detection - handle common typos
+  if (/eng[lish]*|englidh|inglish/.test(t)) return 'en';
   
   return null;
 }
@@ -104,92 +81,34 @@ app.post('/whatsapp', (req, res) => {
   const from = req.body.From;
   const body = req.body.Body || '';
   const session = getSession(from);
-  const lang = session.language || 'en'; // Default to 'en' if no language set
+  const lang = session.language;
 
-  // ====================== STATE MACHINE ======================
-
-  // STATE: LANGUAGE_SELECTION - Handle FIRST with priority order
-  if (session.state === 'LANGUAGE_SELECTION') {
-    const normalized = normalize(body);
+  // ---------- GLOBAL LANGUAGE SWITCHING ----------
+  // Detect if user is trying to switch language
+  const langGuess = detectLanguage(body);
+  if (langGuess && session.language !== langGuess && session.state !== 'LANGUAGE_CONFIRMATION') {
+    // Store pending language and ask for confirmation
+    session.pendingLanguage = langGuess;
+    session.previousState = session.state;
+    session.state = 'LANGUAGE_CONFIRMATION';
     
-    // Priority 1: Numeric input (1, 2, 3)
-    if (body === '1' || normalized === '1') {
-      session.language = 'ta';
-      session.state = 'MAIN_MENU';
-      return reply(res, messages.ta.mainMenu);
-    }
-    if (body === '2' || normalized === '2') {
-      session.language = 'en';
-      session.state = 'MAIN_MENU';
-      return reply(res, messages.en.mainMenu);
-    }
-    if (body === '3' || normalized === '3') {
-      session.language = 'hi';
-      session.state = 'MAIN_MENU';
-      return reply(res, messages.hi.mainMenu);
-    }
-    
-    // Priority 2: Text-based language detection
-    const langDetection = detectLanguageFromText(body);
-    if (langDetection) {
-      if (!langDetection.needsConfirmation) {
-        // Direct selection (English or exact match for Tamil/Hindi)
-        session.language = langDetection.lang;
-        session.state = 'MAIN_MENU';
-        return reply(res, messages[langDetection.lang].mainMenu);
-      } else {
-        // Fuzzy match - ask for confirmation (Tamil/Hindi only)
-        session.pendingLanguage = langDetection.lang;
-        session.previousState = 'LANGUAGE_SELECTION';
-        session.state = 'LANGUAGE_CONFIRMATION';
-        const langName = langDetection.lang === 'ta' ? 'தமிழ்' : 'हिंदी';
-        return reply(res, `Did you mean ${langName}?\n\nReply YES or NO`);
-      }
-    }
-    
-    // Invalid selection - show language menu again
-    return reply(res, messages.en.chooseLanguage);
+    const langName = langGuess === 'en' ? 'English' : langGuess === 'ta' ? 'தமிழ்' : 'हिंदी';
+    return reply(res, `Did you mean ${langName}?\n\nReply YES or NO`);
   }
 
-  // STATE: LANGUAGE_CONFIRMATION - Handle YES/NO responses
+  // Handle language confirmation
   if (session.state === 'LANGUAGE_CONFIRMATION') {
     const normalized = normalize(body);
     if (normalized === 'yes' || normalized === 'y') {
       session.language = session.pendingLanguage;
-      session.state = session.previousState === 'LANGUAGE_SELECTION' ? 'MAIN_MENU' : session.previousState;
+      session.state = session.previousState || 'MAIN_MENU';
       session.pendingLanguage = null;
-      session.previousState = null;
       return reply(res, messages[session.language].mainMenu);
     } else {
       // User said no, revert to previous state
-      const prevState = session.previousState || 'MAIN_MENU';
-      session.state = prevState;
+      session.state = session.previousState || 'MAIN_MENU';
       session.pendingLanguage = null;
-      session.previousState = null;
-      
-      if (prevState === 'LANGUAGE_SELECTION') {
-        return reply(res, messages.en.chooseLanguage);
-      } else {
-        return reply(res, messages[lang].mainMenu);
-      }
-    }
-  }
-
-  // ---------- GLOBAL LANGUAGE SWITCHING (works anytime after initial selection) ----------
-  const langDetection = detectLanguageFromText(body);
-  if (langDetection && session.language !== langDetection.lang) {
-    if (!langDetection.needsConfirmation) {
-      // Direct language switch (English or exact match)
-      session.language = langDetection.lang;
-      session.state = 'MAIN_MENU';
-      return reply(res, messages[langDetection.lang].mainMenu);
-    } else {
-      // Fuzzy match - ask for confirmation
-      session.pendingLanguage = langDetection.lang;
-      session.previousState = session.state;
-      session.state = 'LANGUAGE_CONFIRMATION';
-      const langName = langDetection.lang === 'ta' ? 'தமிழ்' : 'हिंदी';
-      return reply(res, `Did you mean ${langName}?\n\nReply YES or NO`);
+      return reply(res, messages[lang].mainMenu);
     }
   }
 
@@ -217,6 +136,29 @@ app.post('/whatsapp', (req, res) => {
     session.state = 'WAITING_PHOTO';
     session.complaintData = {};
     return reply(res, messages[lang].reportPhoto);
+  }
+
+  // ====================== STATE MACHINE ======================
+
+  // STATE: LANGUAGE_SELECTION
+  if (session.state === 'LANGUAGE_SELECTION') {
+    if (body === '1') {
+      session.language = 'ta';
+      session.state = 'MAIN_MENU';
+      return reply(res, messages.ta.mainMenu);
+    }
+    if (body === '2') {
+      session.language = 'en';
+      session.state = 'MAIN_MENU';
+      return reply(res, messages.en.mainMenu);
+    }
+    if (body === '3') {
+      session.language = 'hi';
+      session.state = 'MAIN_MENU';
+      return reply(res, messages.hi.mainMenu);
+    }
+    // Invalid selection
+    return reply(res, messages.en.chooseLanguage);
   }
 
   // STATE: MAIN_MENU
