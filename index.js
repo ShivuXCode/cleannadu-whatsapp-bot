@@ -83,8 +83,50 @@ app.post('/whatsapp', (req, res) => {
   const session = getSession(from);
   const lang = session.language;
 
-  // ---------- GLOBAL LANGUAGE SWITCHING ----------
-  // Detect if user is trying to switch language
+  // ====================== STATE MACHINE ======================
+
+  // STATE: LANGUAGE_SELECTION - Handle this FIRST before global commands
+  if (session.state === 'LANGUAGE_SELECTION') {
+    // Accept numbers
+    if (body === '1') {
+      session.language = 'ta';
+      session.state = 'MAIN_MENU';
+      return reply(res, messages.ta.mainMenu);
+    }
+    if (body === '2') {
+      session.language = 'en';
+      session.state = 'MAIN_MENU';
+      return reply(res, messages.en.mainMenu);
+    }
+    if (body === '3') {
+      session.language = 'hi';
+      session.state = 'MAIN_MENU';
+      return reply(res, messages.hi.mainMenu);
+    }
+    
+    // Accept language names directly (no confirmation needed during initial selection)
+    const langGuess = detectLanguage(body);
+    if (langGuess === 'ta') {
+      session.language = 'ta';
+      session.state = 'MAIN_MENU';
+      return reply(res, messages.ta.mainMenu);
+    }
+    if (langGuess === 'en') {
+      session.language = 'en';
+      session.state = 'MAIN_MENU';
+      return reply(res, messages.en.mainMenu);
+    }
+    if (langGuess === 'hi') {
+      session.language = 'hi';
+      session.state = 'MAIN_MENU';
+      return reply(res, messages.hi.mainMenu);
+    }
+    
+    // Invalid selection
+    return reply(res, messages.en.chooseLanguage);
+  }
+
+  // ---------- GLOBAL LANGUAGE SWITCHING (only for language changes AFTER initial selection) ----------
   const langGuess = detectLanguage(body);
   if (langGuess && session.language !== langGuess && session.state !== 'LANGUAGE_CONFIRMATION') {
     // Store pending language and ask for confirmation
@@ -136,29 +178,6 @@ app.post('/whatsapp', (req, res) => {
     session.state = 'WAITING_PHOTO';
     session.complaintData = {};
     return reply(res, messages[lang].reportPhoto);
-  }
-
-  // ====================== STATE MACHINE ======================
-
-  // STATE: LANGUAGE_SELECTION
-  if (session.state === 'LANGUAGE_SELECTION') {
-    if (body === '1') {
-      session.language = 'ta';
-      session.state = 'MAIN_MENU';
-      return reply(res, messages.ta.mainMenu);
-    }
-    if (body === '2') {
-      session.language = 'en';
-      session.state = 'MAIN_MENU';
-      return reply(res, messages.en.mainMenu);
-    }
-    if (body === '3') {
-      session.language = 'hi';
-      session.state = 'MAIN_MENU';
-      return reply(res, messages.hi.mainMenu);
-    }
-    // Invalid selection
-    return reply(res, messages.en.chooseLanguage);
   }
 
   // STATE: MAIN_MENU
