@@ -83,33 +83,71 @@ app.post('/whatsapp', (req, res) => {
   const session = getSession(from);
   const lang = session.language;
 
-  // ---------- GLOBAL LANGUAGE SWITCHING ----------
-  // Detect if user is trying to switch language
-  const langGuess = detectLanguage(body);
-  if (langGuess && session.language !== langGuess && session.state !== 'LANGUAGE_CONFIRMATION') {
-    // Store pending language and ask for confirmation
-    session.pendingLanguage = langGuess;
-    session.previousState = session.state;
-    session.state = 'LANGUAGE_CONFIRMATION';
-    
-    const langName = langGuess === 'en' ? 'English' : langGuess === 'ta' ? 'தமிழ்' : 'हिंदी';
-    return reply(res, `Did you mean ${langName}?\n\nReply YES or NO`);
+  // ================= LANGUAGE HANDLING (SAFE) =================
+  const input = normalize(body);
+
+  // Numeric language selection
+  if (session.state === 'LANGUAGE_SELECTION') {
+    if (input === '1') {
+      session.language = 'ta';
+      session.state = 'MAIN_MENU';
+      return reply(res, messages.ta.mainMenu);
+    }
+    if (input === '2') {
+      session.language = 'en';
+      session.state = 'MAIN_MENU';
+      return reply(res, messages.en.mainMenu);
+    }
+    if (input === '3') {
+      session.language = 'hi';
+      session.state = 'MAIN_MENU';
+      return reply(res, messages.hi.mainMenu);
+    }
   }
 
-  // Handle language confirmation
-  if (session.state === 'LANGUAGE_CONFIRMATION') {
-    const normalized = normalize(body);
-    if (normalized === 'yes' || normalized === 'y') {
-      session.language = session.pendingLanguage;
-      session.state = session.previousState || 'MAIN_MENU';
-      session.pendingLanguage = null;
-      return reply(res, messages[session.language].mainMenu);
-    } else {
-      // User said no, revert to previous state
-      session.state = session.previousState || 'MAIN_MENU';
-      session.pendingLanguage = null;
-      return reply(res, messages[lang].mainMenu);
-    }
+  // Direct English text selection (NO confirmation)
+  if (
+    input === 'english' ||
+    input === 'eng' ||
+    input === 'en' ||
+    input === 'englsh' ||
+    input === 'inglish'
+  ) {
+    session.language = 'en';
+    session.state = 'MAIN_MENU';
+    return reply(res, messages.en.mainMenu);
+  }
+
+  // Tamil fuzzy (confirmation required)
+  if (/tam|தமிழ/.test(input)) {
+    session.pendingLanguage = 'ta';
+    session.previousState = session.state;
+    session.state = 'LANGUAGE_CONFIRMATION';
+    return reply(res, 'Did you mean தமிழ்?\n\nReply YES or NO');
+  }
+
+  // Hindi fuzzy (confirmation required)
+  if (/hin|हिं/.test(input)) {
+    session.pendingLanguage = 'hi';
+    session.previousState = session.state;
+    session.state = 'LANGUAGE_CONFIRMATION';
+    return reply(res, 'Did you mean हिंदी?\n\nReply YES or NO');
+  }
+
+  // YES confirmation
+  if (input === 'yes' && session.pendingLanguage) {
+    session.language = session.pendingLanguage;
+    session.pendingLanguage = null;
+    session.state = 'MAIN_MENU';
+    return reply(res, messages[session.language].mainMenu);
+  }
+
+  // NO confirmation
+  if (input === 'no' && session.pendingLanguage) {
+    session.pendingLanguage = null;
+    session.previousState = null;
+    session.state = 'LANGUAGE_SELECTION';
+    return reply(res, messages.en.chooseLanguage);
   }
 
   // ---------- GLOBAL COMMAND SHORTCUTS ----------
@@ -139,27 +177,6 @@ app.post('/whatsapp', (req, res) => {
   }
 
   // ====================== STATE MACHINE ======================
-
-  // STATE: LANGUAGE_SELECTION
-  if (session.state === 'LANGUAGE_SELECTION') {
-    if (body === '1') {
-      session.language = 'ta';
-      session.state = 'MAIN_MENU';
-      return reply(res, messages.ta.mainMenu);
-    }
-    if (body === '2') {
-      session.language = 'en';
-      session.state = 'MAIN_MENU';
-      return reply(res, messages.en.mainMenu);
-    }
-    if (body === '3') {
-      session.language = 'hi';
-      session.state = 'MAIN_MENU';
-      return reply(res, messages.hi.mainMenu);
-    }
-    // Invalid selection
-    return reply(res, messages.en.chooseLanguage);
-  }
 
   // STATE: MAIN_MENU
   if (session.state === 'MAIN_MENU') {
@@ -286,7 +303,7 @@ app.post('/whatsapp', (req, res) => {
     );
   }
 
-  // Fallback - unknown state
+  // Absolute fallback (prevents silent failure)
   return reply(res, messages[lang].mainMenu);
 });
 
