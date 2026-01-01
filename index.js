@@ -18,7 +18,7 @@ function getSession(userId) {
   if (!userSessions[userId]) {
     userSessions[userId] = {
       state: 'LANGUAGE_SELECTION',
-      language: 'en',
+      language: null, // No language selected initially
       complaintData: {},
       pendingLanguage: null
     };
@@ -104,7 +104,7 @@ app.post('/whatsapp', (req, res) => {
   const from = req.body.From;
   const body = req.body.Body || '';
   const session = getSession(from);
-  const lang = session.language;
+  const lang = session.language || 'en'; // Default to 'en' if no language set
 
   // ====================== STATE MACHINE ======================
 
@@ -113,17 +113,17 @@ app.post('/whatsapp', (req, res) => {
     const normalized = normalize(body);
     
     // Priority 1: Numeric input (1, 2, 3)
-    if (body === '1') {
+    if (body === '1' || normalized === '1') {
       session.language = 'ta';
       session.state = 'MAIN_MENU';
       return reply(res, messages.ta.mainMenu);
     }
-    if (body === '2') {
+    if (body === '2' || normalized === '2') {
       session.language = 'en';
       session.state = 'MAIN_MENU';
       return reply(res, messages.en.mainMenu);
     }
-    if (body === '3') {
+    if (body === '3' || normalized === '3') {
       session.language = 'hi';
       session.state = 'MAIN_MENU';
       return reply(res, messages.hi.mainMenu);
