@@ -19,8 +19,7 @@ function getSession(userId) {
     userSessions[userId] = {
       state: 'LANGUAGE_SELECTION',
       language: 'en',
-      complaintData: {},
-      pendingLanguage: null
+      complaintData: {}
     };
   }
   return userSessions[userId];
@@ -126,32 +125,12 @@ app.post('/whatsapp', (req, res) => {
     return reply(res, messages.en.chooseLanguage);
   }
 
-  // ---------- GLOBAL LANGUAGE SWITCHING (only for language changes AFTER initial selection) ----------
+  // ---------- GLOBAL LANGUAGE SWITCHING (direct, no confirmation) ----------
   const langGuess = detectLanguage(body);
-  if (langGuess && session.language !== langGuess && session.state !== 'LANGUAGE_CONFIRMATION') {
-    // Store pending language and ask for confirmation
-    session.pendingLanguage = langGuess;
-    session.previousState = session.state;
-    session.state = 'LANGUAGE_CONFIRMATION';
-    
-    const langName = langGuess === 'en' ? 'English' : langGuess === 'ta' ? 'தமிழ்' : 'हिंदी';
-    return reply(res, `Did you mean ${langName}?\n\nReply YES or NO`);
-  }
-
-  // Handle language confirmation
-  if (session.state === 'LANGUAGE_CONFIRMATION') {
-    const normalized = normalize(body);
-    if (normalized === 'yes' || normalized === 'y') {
-      session.language = session.pendingLanguage;
-      session.state = session.previousState || 'MAIN_MENU';
-      session.pendingLanguage = null;
-      return reply(res, messages[session.language].mainMenu);
-    } else {
-      // User said no, revert to previous state
-      session.state = session.previousState || 'MAIN_MENU';
-      session.pendingLanguage = null;
-      return reply(res, messages[lang].mainMenu);
-    }
+  if (langGuess && session.language !== langGuess) {
+    // Switch language directly without confirmation
+    session.language = langGuess;
+    return reply(res, messages[langGuess].mainMenu);
   }
 
   // ---------- GLOBAL COMMAND SHORTCUTS ----------
