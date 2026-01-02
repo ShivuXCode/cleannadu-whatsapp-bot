@@ -78,15 +78,15 @@ function reply(res, text) {
 
 // ====================== MAIN WEBHOOK ======================
 app.post('/whatsapp', (req, res) => {
-  console.log("📩 Incoming:", req.body);
+  console.log('🔥 Webhook hit');
 
-  const twiml = new twilio.twiml.MessagingResponse();
-  twiml.message(
-    "✅ Bot is alive.\n\nReply:\n1️⃣ Tamil\n2️⃣ English\n3️⃣ Hindi"
-  );
-
-  res.type('text/xml');
-  res.send(twiml.toString());
+  res.status(200)
+     .set('Content-Type', 'text/xml')
+     .send(`
+       <Response>
+         <Message>✅ Twilio webhook is responding</Message>
+       </Response>
+     `);
 });
 
 // ====================== HEALTH CHECK ======================
