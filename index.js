@@ -78,10 +78,14 @@ function reply(res, text) {
 
 // ====================== MAIN WEBHOOK ======================
 app.post('/whatsapp', (req, res) => {
-  const from = req.body.From;
-  const body = req.body.Body || '';
-  const session = getSession(from);
-  const lang = session.language;
+  // Log incoming request for debugging
+  console.log("📩 Incoming:", JSON.stringify(req.body, null, 2));
+  
+  try {
+    const from = req.body.From;
+    const body = req.body.Body || '';
+    const session = getSession(from);
+    const lang = session.language;
 
   // ================= LANGUAGE HANDLING (SAFE) =================
   const input = normalize(body);
@@ -305,6 +309,14 @@ app.post('/whatsapp', (req, res) => {
 
   // Absolute fallback (prevents silent failure)
   return reply(res, messages[lang].mainMenu);
+  
+  } catch (error) {
+    // Critical error handler - ALWAYS send TwiML
+    console.error("❌ Error in webhook:", error);
+    const twiml = new twilio.twiml.MessagingResponse();
+    twiml.message("⚠️ Bot encountered an error. Please type 'menu' to restart.");
+    return res.type('text/xml').send(twiml.toString());
+  }
 });
 
 // ====================== HEALTH CHECK ======================
